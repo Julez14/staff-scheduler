@@ -1,3 +1,4 @@
+import csv
 from collections import defaultdict
 
 def can_cover_appointment(staff_available_hours, appointment):
@@ -78,6 +79,74 @@ def match_staff_to_clients(staff_list, clients):
             schedule[client_name][appointment] = assigned_staff
 
     return schedule
+
+def fractional_hour_to_hhmm(fractional_hour):
+    """
+    Convert a fractional hour (e.g. 9.5, 10.25) into HH:MM format.
+      9.5    -> "09:30"
+      10.25  -> "10:15"
+      9.75   -> "09:45"
+    """
+    hour = int(fractional_hour)                     # e.g. 9 from 9.5
+    minute = int(round((fractional_hour - hour) * 60))
+    return f"{hour:02d}:{minute:02d}"
+
+def write_schedule_to_csv(schedule, output_csv_path, appointment_date="2025-02-01"):
+    """
+    Writes the schedule dictionary to a CSV file in a format
+    that can be imported into Google Calendar.
+    
+    - schedule: {
+        client_name: {
+          (start_hour, end_hour): staff_member_name (or None)
+        }
+      }
+    - output_csv_path: path to the CSV file to write
+    - appointment_date: string representing the date of the appointments 
+                       (e.g., "2025-01-31" in yyyy-mm-dd format)
+    """
+    # Define column headers based on Google Calendar’s CSV requirements
+    # (These can vary, but here's a commonly accepted format)
+    fieldnames = [
+        "Subject",
+        "Start Date",
+        "Start Time",
+        "End Date",
+        "End Time",
+        "All Day Event",
+        "Description",
+        "Location"
+    ]
+
+    with open(output_csv_path, mode="w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+
+        # Convert each appointment in the schedule to a row in the CSV
+        for client_name, appts in schedule.items():
+            for (start_hour, end_hour), staff_name in appts.items():
+                if staff_name is None:
+                    # We can decide how to handle unassigned appointments
+                    staff_name = "No Staff Assigned"
+
+                # Build a row
+                subject = f"{client_name} with {staff_name}"  # Event title
+                start_time = fractional_hour_to_hhmm(start_hour)
+                end_time = fractional_hour_to_hhmm(end_hour)
+                description = f"Care appointment for {client_name} handled by {staff_name}"
+                location = "Senior Care Facility"  # Or wherever relevant
+
+                row = {
+                    "Subject": subject,
+                    "Start Date": appointment_date,
+                    "Start Time": start_time,
+                    "End Date": appointment_date,
+                    "End Time": end_time,
+                    "All Day Event": False,
+                    "Description": description,
+                    "Location": location
+                }
+                writer.writerow(row)
 
 if __name__ == "__main__": # means to only execute when the program is run, not when it's imported as a module
     staff_list = [
@@ -218,3 +287,8 @@ if __name__ == "__main__": # means to only execute when the program is run, not 
             start, end = times
             staff_str = staff if staff else "No staff available"
             print(f"  Appointment {start}-{end} -> {staff_str}")
+
+    # Write schedule to a CSV file for Google Calendar
+    output_csv = "senior_care_schedule.csv"
+    write_schedule_to_csv(schedule, output_csv_path=output_csv, appointment_date="2025-02-01")
+    print(f"\nCSV schedule written to {output_csv}")
